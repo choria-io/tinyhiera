@@ -4,9 +4,6 @@ TinyHiera is a small configuration resolver inspired by Hiera. It evaluates a YA
 
 It is optimized for single files that hold the hierarchy and configuration data rather than the multi file approach common in Hiera.
 
-> [!NOTE]
-> OpenAI Codex almost entirely created this project
-
 ## Installation
 
 ```
@@ -14,6 +11,50 @@ go get github.com/choria-io/tinyhiera
 ```
 
 ## Usage
+
+### CLI example
+
+A small utility is provided to resolve a hierarchy file and a set of facts:
+
+Given the input file `data.json`:
+
+```json{
+{
+    "hierarchy": {
+        "order": [
+            "fqdn:%{fqdn}"
+        ]
+    },
+    "configuration": {
+        "test": "value"
+    },
+    "fqdn:my.fqdn.com": {
+        "test": "override"
+    }
+}
+```
+
+We can run the utility like this:
+
+```
+$ tinyhiera data.json fqdn=my.fqdn.com
+{
+  "test": "override"
+}
+$ tinyhiera data.json fqdn=other.fqdn.com
+{
+  "test": "value"
+}
+```
+
+It can also produce YAML output:
+
+```
+$ tinyhiera test.json fqdn=other.fqdn.com --yaml
+test: value
+```
+
+### Go example
 
 Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `%{fact}` placeholders, and merge the matching sections. Use `literal()` to emit templating characters verbatim (for example `%{literal('%')}{SERVER_NAME}` becomes `%{SERVER_NAME}`).
 

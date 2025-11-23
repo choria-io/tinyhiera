@@ -1,0 +1,58 @@
+version: 2
+project_name: tinyhiera
+
+release:
+  github:
+    owner: choria-io
+    name: tinyhiera
+  name_template: "Release {{.Version}}"
+  draft: true
+
+changelog:
+  disable: true
+
+builds:
+  - id: tinyhiera
+    main: ./tinyhiera
+    binary: tinyhiera
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+    goarm:
+      - "6"
+      - "7"
+
+archives:
+  - name_template: "tinyhiera-{{.Version}}-{{.Os}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}"
+    wrap_in_directory: true
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+
+brews:
+  - name: tinyhiera
+    directory: Formula
+    repository:
+      owner: choria-io
+      name: homebrew-tap
+    url_template: "https://github.com/choria-io/tinyhiera/releases/download/{{ .Tag }}/tinyhiera-{{.Version}}-{{ .Os }}-{{ .Arch }}{{if .Arm}}{{.Arm}}{{end}}.tar.gz"
+    homepage: "https://github.com/choria-io/tinyhiera"
+    description: "Choria Tiny Hiera CLI"
+    skip_upload: false
+    test: |
+      system "#{bin}/tinyhiera --version"
+    install: |
+      bin.install "tinyhiera"
+
+checksum:
+  name_template: "SHA256SUMS"
+  algorithm: sha256
