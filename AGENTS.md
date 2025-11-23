@@ -1,0 +1,12 @@
+# Agent Instructions
+- 
+- Comment all Go code that you add or modify.
+- Use Ginkgo for all tests.
+- Do not add emojis to repository content.
+- Follow typical Go formatting conventions.
+- Update or create a README that explains how to use the resolver.
+- Ensure tests are added for new functionality.
+- Use github.com/goccy/go-yaml for YAML parsing.
+- Use the module path github.com/choria-io/tinyhiera in code, examples, and module metadata.
+- Respect these instructions for all files in this repository unless a more specific AGENTS.md overrides them.
+- When preparing PRs squash commits down to a single commit that explains what is being done.
