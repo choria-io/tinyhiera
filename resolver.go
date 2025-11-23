@@ -1,6 +1,7 @@
 package tinyhiera
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"regexp"
@@ -87,6 +88,17 @@ func ResolveYaml(data []byte, facts map[string]any) (map[string]any, error) {
 	root := map[string]any{}
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	return Resolve(root, facts)
+}
+
+// ResolveJson consumes raw JSON bytes and a map of facts to produce a final configuration map.
+// The function decodes the JSON document and delegates processing to Resolve to perform merges and fact substitution.
+func ResolveJson(data []byte, facts map[string]any) (map[string]any, error) {
+	root := map[string]any{}
+	if err := json.Unmarshal(data, &root); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
 	return Resolve(root, facts)
