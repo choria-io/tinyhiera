@@ -12,6 +12,45 @@ go get github.com/choria-io/tinyhiera
 
 ## Usage
 
+### Hierarchy file format
+
+Here is an annotated example of a hierarchy file:
+
+```yaml
+hierarchy:
+    # this is the lookup and override order, facts will be resolved here
+    #
+    # if your fact is nested, you can use gjson format queries like %{networking.fqdn}
+    order:
+     - env:%{env}
+     - role:%{role}
+     - host:%{hostname}
+    merge: deep # or first
+
+# This is the resulting output and must be present, the hierarchy results will be merged in
+configuration:
+   log_level: INFO
+   packages:
+     - ca-certificates
+   web:
+     listen_port: 80
+     tls: false
+
+env:prod:
+  log_level: WARN
+
+role:web:
+  packages:
+    - nginx
+  web:
+    tls: true
+
+host:web01:
+  log_level: TRACE
+```
+
+See [GJSON Path Syntax](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) for help in accessing nested facts.
+
 ### CLI example
 
 A small utility is provided to resolve a hierarchy file and a set of facts:

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/goccy/go-yaml"
+	"github.com/tidwall/gjson"
 )
 
 // Hierarchy describes how configuration sections should be resolved.
@@ -154,13 +155,20 @@ func applyFacts(template string, facts map[string]any) string {
 		return inner[1 : len(inner)-1], true
 	}
 
+	factJson, err := json.Marshal(facts)
+	if err != nil {
+		return template
+	}
+
 	return re.ReplaceAllStringFunc(template, func(match string) string {
 		key := strings.TrimSuffix(strings.TrimPrefix(match, "%{"), "}")
 		if literalValue, ok := parseLiteral(key); ok {
 			return literalValue
 		}
-		if value, ok := facts[key]; ok {
-			return fmt.Sprint(value)
+
+		factsValue := gjson.GetBytes(factJson, key)
+		if factsValue.Exists() {
+			return factsValue.String()
 		}
 		return ""
 	})

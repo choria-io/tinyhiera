@@ -178,6 +178,14 @@ var _ = Describe("applyFacts", func() {
 		quoted := applyFacts("%{literal(\"%\")}{SERVER_NAME}", map[string]any{"SERVER_NAME": "example"})
 		Expect(quoted).To(Equal("%{SERVER_NAME}"))
 	})
+
+	It("Should support gjson lookups", func() {
+		result := applyFacts("%{node.fqdn}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		Expect(result).To(Equal("example.com"))
+
+		result = applyFacts("%{node.foo}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		Expect(result).To(Equal(""))
+	})
 })
 
 var _ = Describe("normalizeNumericValues", func() {
