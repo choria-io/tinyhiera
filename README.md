@@ -34,7 +34,6 @@ func main() {
         yamlDoc := []byte(`
  hierarchy:
    order:
-     - global
      - env:%{env}
      - role:%{role}
      - host:%{hostname}
@@ -94,7 +93,7 @@ If you already have parsed YAML data available, call `Resolve` directly:
 ```go
 config := map[string]any{
         "hierarchy": map[string]any{
-                "order": []any{"configuration", "role:%{role}"},
+                "order": []any{"role:%{role}"},
                 "merge": "deep",
         },
         "configuration": map[string]any{
