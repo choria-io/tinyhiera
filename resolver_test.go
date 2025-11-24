@@ -11,9 +11,9 @@ var _ = Describe("ResolveYaml", func() {
 hierarchy:
   order:
     - global
-    - env:%{env}
-    - role:%{role}
-    - host:%{hostname}
+    - env:{{ lookup('env') }}
+    - role:{{ lookup('role') }}
+    - host:{{ lookup('hostname') }}
   merge: deep
 
 data:
@@ -60,8 +60,8 @@ host:web01:
 		yamlData := []byte(`
 hierarchy:
   order:
-    - env:%{env}
-    - role:%{role}
+    - env:{{ lookup('env') }}
+    - role:{ lookup('role') }}
   merge: first
 
 data:
@@ -91,7 +91,7 @@ var _ = Describe("Resolve", func() {
 	It("processes an already parsed map without mutating input", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"data", "role:%{role}"},
+				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
 				"merge": "deep",
 			},
 			"data": map[string]any{
@@ -103,7 +103,7 @@ var _ = Describe("Resolve", func() {
 			},
 		}
 
-		facts := map[string]any{"role": "web"}
+		facts := map[string]any{"role": "WEB"}
 
 		result, err := Resolve(data, facts)
 		Expect(err).NotTo(HaveOccurred())
@@ -114,7 +114,7 @@ var _ = Describe("Resolve", func() {
 
 		Expect(data).To(Equal(map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"data", "role:%{role}"},
+				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
 				"merge": "deep",
 			},
 			"data": map[string]any{
@@ -160,30 +160,25 @@ var _ = Describe("parseHierarchy", func() {
 var _ = Describe("applyFacts", func() {
 	It("replaces placeholders with fact values", func() {
 		// Verifies templated segments are substituted when facts are available.
-		result := applyFacts("role:%{role}", map[string]any{"role": "web"})
+		result, err := applyFacts("role:{{ lookup('role') }}", map[string]any{"role": "web"})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("role:web"))
 	})
 
 	It("drops placeholders when facts are missing", func() {
 		// Confirms missing fact keys result in empty substitutions.
-		result := applyFacts("env:%{unknown}", map[string]any{})
+		result, err := applyFacts("env:{{ lookup('unknown') }}", map[string]any{})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("env:"))
 	})
 
-	It("supports literal expressions to avoid substitution", func() {
-		// Validates that literal() can emit templating characters verbatim.
-		result := applyFacts("%{literal('%')}{SERVER_NAME}", map[string]any{"SERVER_NAME": "example"})
-		Expect(result).To(Equal("%{SERVER_NAME}"))
-
-		quoted := applyFacts("%{literal(\"%\")}{SERVER_NAME}", map[string]any{"SERVER_NAME": "example"})
-		Expect(quoted).To(Equal("%{SERVER_NAME}"))
-	})
-
 	It("Should support gjson lookups", func() {
-		result := applyFacts("%{node.fqdn}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, err := applyFacts("{{ lookup('node.fqdn') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("example.com"))
 
-		result = applyFacts("%{node.foo}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, err = applyFacts("{{ lookup('node.foo') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(""))
 	})
 })

@@ -65,8 +65,8 @@ Given this focus, the needs will be a bit different and those are still being di
 
 TODO list:
 
- * [ ] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
- * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
+ * [x] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
+ * [x] Support interpolating data in values using [expr](https://expr-lang.org) 
  * [ ] Once `expr` support lands support data types for interpolated values
  * [x] Add a `--query` flag to the CLI to dig into the resulting data
  * [x] Rename `configuration` to more generic `data`
@@ -89,11 +89,11 @@ Here is an annotated example of a hierarchy file:
 hierarchy:
     # this is the lookup and override order, facts will be resolved here
     #
-    # if your fact is nested, you can use gjson format queries like %{networking.fqdn}
+    # if your fact is nested, you can use gjson format queries like via the lookup function {{ lookup('networking.fqdn') }}
     order:
-     - env:%{env}
-     - role:%{role}
-     - host:%{hostname}
+     - env:{{ lookup('env') }}
+     - role:{{ lookup('role') }}
+     - host:{{ lookup('hostname') }}
     merge: deep # or first
 
 # This is the resulting output and must be present, the hierarchy results will be merged in
@@ -118,7 +118,7 @@ host:web01:
   log_level: TRACE
 ```
 
-See [GJSON Path Syntax](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) for help in accessing nested facts.
+See [GJSON Path Syntax](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) for help in accessing nested facts. See [Expr Language Definition](https://expr-lang.org/docs/language-definition) for the query language
 
 ### CLI example
 
@@ -130,7 +130,7 @@ Given the input file `data.json`:
 {
     "hierarchy": {
         "order": [
-            "fqdn:%{fqdn}"
+            "fqdn:{{ lookup('fqdn'}} }}"
         ]
     },
     "data": {
@@ -164,7 +164,7 @@ test: value
 
 ### Go example
 
-Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `%{fact}` placeholders, and merge the matching sections. Use `literal()` to emit templating characters verbatim (for example `%{literal('%')}{SERVER_NAME}` becomes `%{SERVER_NAME}`).
+Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `{{ lookup('fact') }}` placeholders, and merge the matching sections.
 
 Here the `hierarchy` key defines the lookup strategies and the `data` key defines what will be returned.
 
@@ -183,9 +183,9 @@ func main() {
         yamlDoc := []byte(`
  hierarchy:
    order:
-     - env:%{env}
-     - role:%{role}
-     - host:%{hostname}
+     - env:{{ lookup('env') }}
+     - role:{{ lookup('role') }}
+     - host:{{ lookup('hostname') }}
    merge: deep
 
  data:
@@ -242,7 +242,7 @@ If you already have parsed YAML data available, call `Resolve` directly:
 ```go
 config := map[string]any{
         "hierarchy": map[string]any{
-                "order": []any{"role:%{role}"},
+                "order": []any{"role:{{ lookup('role') }}"},
                 "merge": "deep",
         },
         "data": map[string]any{

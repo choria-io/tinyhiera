@@ -4,6 +4,7 @@ go 1.24.3
 
 require (
 	github.com/choria-io/fisk v0.7.2
+	github.com/expr-lang/expr v1.17.6
 	github.com/goccy/go-yaml v1.18.0
 	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
