@@ -68,7 +68,7 @@ TODO list:
  * [ ] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
  * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
  * [ ] Once `expr` support lands support data types for interpolated values
- * [ ] Add a `--query` flag to the CLI to dig into the resulting data
+ * [x] Add a `--query` flag to the CLI to dig into the resulting data
  * [x] Rename `configuration` to more generic `data`
  * [ ] Move the overriding data from top level to `overrides`
  * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
