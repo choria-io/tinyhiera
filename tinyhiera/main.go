@@ -9,6 +9,7 @@ import (
 	"github.com/choria-io/fisk"
 	"github.com/choria-io/tinyhiera"
 	"github.com/goccy/go-yaml"
+	"github.com/tidwall/gjson"
 )
 
 var (
@@ -17,6 +18,7 @@ var (
 	factsFile  string
 	yamlOutput bool
 	version    string
+	query      string
 )
 
 func main() {
@@ -28,6 +30,7 @@ func main() {
 
 	app.Arg("input", "Input JSON or YAML file to resolve").Required().ExistingFileVar(&input)
 	app.Arg("fact", "Facts about the node").StringMapVar(&factsInput)
+	app.Flag("query", "Performs a gjson query on the result").StringVar(&query)
 	app.Flag("facts", "JSON or YAML file containing facts").ExistingFileVar(&factsFile)
 	app.Flag("yaml", "Output YAML instead of JSON").UnNegatableBoolVar(&yamlOutput)
 
@@ -71,14 +74,25 @@ func runAction(_ *fisk.ParseContext) error {
 		return err
 	}
 
+	jout, err := json.MarshalIndent(res, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if query != "" {
+		val := gjson.GetBytes(jout, query)
+		fmt.Println(val.String())
+		return nil
+	}
+
 	var out []byte
 	if yamlOutput {
 		out, err = yaml.Marshal(res)
+		if err != nil {
+			return err
+		}
 	} else {
-		out, err = json.MarshalIndent(res, "", "  ")
-	}
-	if err != nil {
-		return err
+		out = jout
 	}
 
 	fmt.Println(strings.TrimSpace(string(out)))
