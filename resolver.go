@@ -37,6 +37,10 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	}
 
 	root = normalizedRoot
+	var overrides map[string]any
+	if _, ok := root["overrides"]; ok {
+		overrides = root["overrides"].(map[string]any)
+	}
 
 	hierarchy, err := parseHierarchy(root)
 	if err != nil {
@@ -60,18 +64,15 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 			return nil, err
 		}
 		candidateKey := resolvedKey
-		if candidateKey == "global" {
-			if _, ok := root[candidateKey]; !ok {
-				candidateKey = "data"
-			}
-		}
 		if candidateKey == "data" && hasData {
 			continue
 		}
-		candidate, ok := root[candidateKey].(map[string]any)
+		candidate, ok := overrides[candidateKey].(map[string]any)
 		if !ok {
 			continue
 		}
+
+		// TODO: expr the data recursively
 
 		switch mergeMode {
 		case "deep":
@@ -159,11 +160,7 @@ func applyFacts(template string, facts map[string]any) (string, error) {
 	// Capture group 1 = inner text
 	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
 
-	factsCopy := map[string]any{}
-	for k, v := range facts {
-		factsCopy[k] = v
-	}
-
+	factsCopy := cloneMap(facts)
 	out := template
 
 	matches := re.FindAllStringSubmatchIndex(template, -1)
@@ -210,24 +207,6 @@ func applyFacts(template string, facts map[string]any) (string, error) {
 	result.WriteString(out[lastIndex:])
 
 	return result.String(), nil
-}
-
-func ProcessBraces(s string, callback func(string)) error {
-	// Regex to match {{ ... }} non-greedily
-	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
-
-	matches := re.FindAllStringSubmatch(s, -1)
-	if matches == nil {
-		return nil // no matches found, not an error
-	}
-
-	for _, m := range matches {
-		// m[1] is the captured inner content
-		inner := strings.TrimSpace(m[1])
-		callback(inner)
-	}
-
-	return nil
 }
 
 // normalizeNumericValues walks a decoded YAML structure and converts numeric values into int when they safely fit the

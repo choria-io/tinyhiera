@@ -24,17 +24,18 @@ data:
     listen_port: 80
     tls: false
 
-env:prod:
-  log_level: WARN
+overrides:
+  env:prod:
+    log_level: WARN
 
-role:web:
-  packages:
+  role:web:
+    packages:
     - nginx
-  web:
-    tls: true
+    web:
+      tls: true
 
-host:web01:
-  log_level: TRACE
+  host:web01:
+    log_level: TRACE
 `)
 
 		facts := map[string]any{
@@ -67,11 +68,12 @@ hierarchy:
 data:
   log_level: INFO
 
-env:stage:
-  log_level: DEBUG
+overrides:
+    env:stage:
+      log_level: DEBUG
 
-role:web:
-  log_level: WARN
+    role:web:
+      log_level: WARN
 `)
 
 		facts := map[string]any{
@@ -97,9 +99,11 @@ var _ = Describe("Resolve", func() {
 			"data": map[string]any{
 				"value": 1,
 			},
-			"role:web": map[string]any{
-				"list":  []any{float64(2)},
-				"value": 2,
+			"overrides": map[string]any{
+				"role:web": map[string]any{
+					"list":  []any{float64(2)},
+					"value": 2,
+				},
 			},
 		}
 
@@ -120,9 +124,11 @@ var _ = Describe("Resolve", func() {
 			"data": map[string]any{
 				"value": 1,
 			},
-			"role:web": map[string]any{
-				"list":  []any{float64(2)},
-				"value": 2,
+			"overrides": map[string]any{
+				"role:web": map[string]any{
+					"list":  []any{float64(2)},
+					"value": 2,
+				},
 			},
 		}))
 	})
