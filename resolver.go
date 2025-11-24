@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/expr-lang/expr"
 	"github.com/goccy/go-yaml"
 	"github.com/tidwall/gjson"
 )
@@ -54,7 +55,10 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	}
 
 	for _, entry := range hierarchy.Order {
-		resolvedKey := applyFacts(entry, facts)
+		resolvedKey, err := applyFacts(entry, facts)
+		if err != nil {
+			return nil, err
+		}
 		candidateKey := resolvedKey
 		if candidateKey == "global" {
 			if _, ok := root[candidateKey]; !ok {
@@ -131,47 +135,99 @@ func parseHierarchy(root map[string]any) (Hierarchy, error) {
 	return Hierarchy{Order: order, Merge: mergeMode}, nil
 }
 
-// applyFacts replaces %{fact} placeholders with concrete values from the provided facts map.
-// A special literal function allows emitting templated delimiters without triggering further substitution,
-// for example %{literal('%')}{SERVER_NAME} becomes %{SERVER_NAME}.
-func applyFacts(template string, facts map[string]any) string {
-	re := regexp.MustCompile(`%\{([^}]+)\}`)
-
-	parseLiteral := func(key string) (string, bool) {
-		if !strings.HasPrefix(key, "literal(") || !strings.HasSuffix(key, ")") {
-			return "", false
-		}
-
-		inner := strings.TrimSuffix(strings.TrimPrefix(key, "literal("), ")")
-		if len(inner) < 2 {
-			return "", false
-		}
-
-		quote := inner[0]
-		if (quote != '\'' && quote != '"') || inner[len(inner)-1] != quote {
-			return "", false
-		}
-
-		return inner[1 : len(inner)-1], true
-	}
-
-	factJson, err := json.Marshal(facts)
+func genExprEnv(facts map[string]any) (map[string]any, error) {
+	j, err := json.Marshal(facts)
 	if err != nil {
-		return template
+		return nil, err
 	}
 
-	return re.ReplaceAllStringFunc(template, func(match string) string {
-		key := strings.TrimSuffix(strings.TrimPrefix(match, "%{"), "}")
-		if literalValue, ok := parseLiteral(key); ok {
-			return literalValue
+	facts["lookup"] = func(key string) (any, error) {
+		res := gjson.GetBytes(j, key)
+		if res.Exists() {
+			return res.Value(), nil
 		}
 
-		factsValue := gjson.GetBytes(factJson, key)
-		if factsValue.Exists() {
-			return factsValue.String()
+		return "", nil
+	}
+
+	return facts, nil
+}
+
+// applyFacts parses {{ expression}} placeholders using expr and replace them with the resulting values
+func applyFacts(template string, facts map[string]any) (string, error) {
+	// Matches: {{ something }}
+	// Capture group 1 = inner text
+	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
+
+	factsCopy := map[string]any{}
+	for k, v := range facts {
+		factsCopy[k] = v
+	}
+
+	out := template
+
+	matches := re.FindAllStringSubmatchIndex(template, -1)
+	if matches == nil {
+		return template, nil // nothing to replace
+	}
+
+	// We will build the output incrementally
+	var result strings.Builder
+	lastIndex := 0
+
+	for _, loc := range matches {
+		fullStart, fullEnd := loc[0], loc[1]
+		innerStart, innerEnd := loc[2], loc[3]
+
+		// Write everything before this match
+		result.WriteString(out[lastIndex:fullStart])
+
+		innerExpr := template[innerStart:innerEnd]
+
+		// Compile and run the expression
+		env, err := genExprEnv(factsCopy)
+		if err != nil {
+			return "", err
 		}
-		return ""
-	})
+
+		program, err := expr.Compile(innerExpr, expr.Env(env))
+		if err != nil {
+			return "", fmt.Errorf("expr compile error for '%s': %w", innerExpr, err)
+		}
+
+		value, err := expr.Run(program, env)
+		if err != nil {
+			return "", fmt.Errorf("expr run error for '%s': %w", innerExpr, err)
+		}
+
+		// Convert result to string
+		result.WriteString(fmt.Sprint(value))
+
+		lastIndex = fullEnd
+	}
+
+	// Append any remainder after last match
+	result.WriteString(out[lastIndex:])
+
+	return result.String(), nil
+}
+
+func ProcessBraces(s string, callback func(string)) error {
+	// Regex to match {{ ... }} non-greedily
+	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
+
+	matches := re.FindAllStringSubmatch(s, -1)
+	if matches == nil {
+		return nil // no matches found, not an error
+	}
+
+	for _, m := range matches {
+		// m[1] is the captured inner content
+		inner := strings.TrimSpace(m[1])
+		callback(inner)
+	}
+
+	return nil
 }
 
 // normalizeNumericValues walks a decoded YAML structure and converts numeric values into int when they safely fit the
