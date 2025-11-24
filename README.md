@@ -4,6 +4,75 @@ TinyHiera is a small configuration resolver inspired by Hiera. It evaluates a YA
 
 It is optimized for single files that hold the hierarchy and configuration data rather than the multi file approach common in Hiera.
 
+This is an experiment at the moment to see how I can solve a specific need, my goal is to create a small-scale configuration management system suitable for running in a Choria Autonomous Agent.
+
+Autonomous Agents focus on managing a single thing, like an application, and owns the entire lifecycle of that application including monitoring, remediation, upgrades and everything.  In that context the data needs are simple - essentially those of a single Puppet module.
+
+So this Hiera, while being Hiera inspired, will be quite different.  It will not be orientated around single-key lookup but rather in resolving the entire data structure in one go and handing it back fully resolved.
+
+The end goal is to have some CLI tooling that allows for this:
+
+```nohighlight
+# Like the Puppet RAL but for CLI, supports multiple package systems etc
+$ marionette package ensure zsh --version 1.2.3
+$ marionette service ensure ssh-server --enable --running
+$ marionette service info httpd
+
+# Can be driven by JSON in and returns JSON out instead
+$ echo '{"name":"zsh", "version":"1.2.3"}'|marionette package apply
+{
+ ....
+} 
+```
+
+The aim above is to make a scriptable RAL, you get multi OS support but your scripts do not change to support different OSes and the individual RAL calls remain idempotent - making it much easier to create re-runnable scripts.  We will focus on just package, `service`, `file`, `exec` and `user` resources to keep things focussed.
+
+We could though create manifest that encapsulates one service - the package, config, service trio - into one JSON file and apply that:
+
+```nohighlight
+# We create a manifest installing a package with a customizable version
+cat <<EOF>manifest.json
+{
+  "hierarchy": {
+    # note we have access to other functions here in the query like lowecasing stuff, easy to extend
+    "order": [ "fqdn:{{ lookup('facts.networking.fqdn') | lower() }}" ]
+  }
+  "data": {
+    "package": "zsh",
+    "version": "present"
+  }
+  "resources": [
+    {"package": {"name": "{{ lookup('data.package') }}", "version": "{{ lookup('data.version') }}"}}   
+  ]
+  "overrides": {
+    "fqdn:my.example.net": {
+        "version": "1.2.3",
+        "package": "zsh-shell"
+    }
+  }
+}
+EOF
+
+# we apply the manifest using node facts in facts.json
+$ marionette apply manifest.json --facts facts.json
+```
+
+And we could even compile this manifest to a executable binary that is statically compiled and have no dependencies - imagine `./setup --facts facts.json` and your node is configured.
+
+## Status
+
+Given this focus, the needs will be a bit different and those are still being discovered. You're welcome to share ideas and feedback but I'd hold off on using this just yet.
+
+TODO list:
+
+ * [ ] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
+ * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
+ * [ ] Once `expr` support lands support data types for interpolated values
+ * [ ] Add a `--query` flag to the CLI to dig into the resulting data
+ * [ ] Rename `configuration` to more generic `data`
+ * [ ] Move the overriding data from top level to `overrides`
+ * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
+ 
 ## Installation
 
 ```
