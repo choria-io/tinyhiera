@@ -11,9 +11,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// Hierarchy describes how configuration sections should be resolved.
+// Hierarchy describes how data sections should be resolved.
 type Hierarchy struct {
-	// Order defines the lookup sequence for configuration sections.
+	// Order defines the lookup sequence for data sections.
 	Order []string `yaml:"order"`
 	// Merge selects the merge strategy ("first" or "deep").
 	Merge string `yaml:"merge"`
@@ -26,8 +26,8 @@ var (
 	minInt = -maxInt - 1
 )
 
-// Resolve consumes a parsed configuration document and a map of facts to produce a final configuration map.
-// The configuration map is expected to contain a hierarchy section, a base configuration section, and any number of overlays.
+// Resolve consumes a parsed data document and a map of facts to produce a final data map.
+// The data map is expected to contain a hierarchy section, a base data section, and any number of overlays.
 // Placeholders in the hierarchy order (e.g. env:%{env}) are replaced with values from the provided facts map.
 func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) {
 	normalizedRoot, ok := normalizeNumericValues(root).(map[string]any)
@@ -43,9 +43,9 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	}
 
 	base := map[string]any{}
-	configuration, hasConfiguration := root["configuration"].(map[string]any)
-	if hasConfiguration {
-		base = cloneMap(configuration)
+	data, hasData := root["data"].(map[string]any)
+	if hasData {
+		base = cloneMap(data)
 	}
 
 	mergeMode := strings.ToLower(hierarchy.Merge)
@@ -58,10 +58,10 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 		candidateKey := resolvedKey
 		if candidateKey == "global" {
 			if _, ok := root[candidateKey]; !ok {
-				candidateKey = "configuration"
+				candidateKey = "data"
 			}
 		}
-		if candidateKey == "configuration" && hasConfiguration {
+		if candidateKey == "data" && hasData {
 			continue
 		}
 		candidate, ok := root[candidateKey].(map[string]any)
@@ -83,7 +83,7 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	return base, nil
 }
 
-// ResolveYaml consumes raw YAML bytes and a map of facts to produce a final configuration map.
+// ResolveYaml consumes raw YAML bytes and a map of facts to produce a final data map.
 // The function decodes the YAML document and delegates processing to Resolve to perform merges and fact substitution.
 func ResolveYaml(data []byte, facts map[string]any) (map[string]any, error) {
 	root := map[string]any{}
@@ -94,7 +94,7 @@ func ResolveYaml(data []byte, facts map[string]any) (map[string]any, error) {
 	return Resolve(root, facts)
 }
 
-// ResolveJson consumes raw JSON bytes and a map of facts to produce a final configuration map.
+// ResolveJson consumes raw JSON bytes and a map of facts to produce a final data map.
 // The function decodes the JSON document and delegates processing to Resolve to perform merges and fact substitution.
 func ResolveJson(data []byte, facts map[string]any) (map[string]any, error) {
 	root := map[string]any{}

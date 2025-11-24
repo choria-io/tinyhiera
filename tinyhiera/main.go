@@ -22,7 +22,7 @@ var (
 func main() {
 	factsInput = make(map[string]string)
 
-	app := fisk.New("tinyhiera", "Tiny Hierarchical configuration resolver").Action(runAction)
+	app := fisk.New("tinyhiera", "Tiny Hierarchical data resolver").Action(runAction)
 	app.Version(version)
 	app.Author("R.I.Pienaar <rip@choria.io>")
 

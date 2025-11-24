@@ -1,8 +1,8 @@
 # TinyHiera
 
-TinyHiera is a small configuration resolver inspired by Hiera. It evaluates a YAML document alongside a set of facts to produce a final configuration map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
+TinyHiera is a small data resolver inspired by Hiera. It evaluates a YAML document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
 
-It is optimized for single files that hold the hierarchy and configuration data rather than the multi file approach common in Hiera.
+It is optimized for single files that hold the hierarchy and data rather than the multi file approach common in Hiera.
 
 This is an experiment at the moment to see how I can solve a specific need, my goal is to create a small-scale configuration management system suitable for running in a Choria Autonomous Agent.
 
@@ -69,7 +69,7 @@ TODO list:
  * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
  * [ ] Once `expr` support lands support data types for interpolated values
  * [ ] Add a `--query` flag to the CLI to dig into the resulting data
- * [ ] Rename `configuration` to more generic `data`
+ * [x] Rename `configuration` to more generic `data`
  * [ ] Move the overriding data from top level to `overrides`
  * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
  
@@ -97,7 +97,7 @@ hierarchy:
     merge: deep # or first
 
 # This is the resulting output and must be present, the hierarchy results will be merged in
-configuration:
+data:
    log_level: INFO
    packages:
      - ca-certificates
@@ -133,7 +133,7 @@ Given the input file `data.json`:
             "fqdn:%{fqdn}"
         ]
     },
-    "configuration": {
+    "data": {
         "test": "value"
     },
     "fqdn:my.fqdn.com": {
@@ -166,7 +166,7 @@ test: value
 
 Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `%{fact}` placeholders, and merge the matching sections. Use `literal()` to emit templating characters verbatim (for example `%{literal('%')}{SERVER_NAME}` becomes `%{SERVER_NAME}`).
 
-Here the `hierarchy` key defines the lookup strategies and the `configuration` key defines what will be returned.
+Here the `hierarchy` key defines the lookup strategies and the `data` key defines what will be returned.
 
 The rest is the hierarchy data.
 
@@ -188,7 +188,7 @@ func main() {
      - host:%{hostname}
    merge: deep
 
- configuration:
+ data:
    log_level: INFO
    packages:
      - ca-certificates
@@ -224,7 +224,7 @@ func main() {
 }
 ```
 
-Running the example yields the following configuration map:
+Running the example yields the following data map:
 
 ```
 map[log_level:TRACE packages:[ca-certificates nginx] web:map[listen_port:80 tls:true]]
@@ -232,7 +232,7 @@ map[log_level:TRACE packages:[ca-certificates nginx] web:map[listen_port:80 tls:
 
 ## Merge strategies
 
-- `first` (default): Applies the first matching overlay from the hierarchy order and returns the merged configuration.
+- `first` (default): Applies the first matching overlay from the hierarchy order and returns the merged data.
 - `deep`: Recursively merges all matching overlays. Maps are merged, slices are concatenated, and scalar values override earlier values.
 
 ## Parsed input usage
@@ -245,7 +245,7 @@ config := map[string]any{
                 "order": []any{"role:%{role}"},
                 "merge": "deep",
         },
-        "configuration": map[string]any{
+        "data": map[string]any{
                 "value": 1,
         },
         "role:web": map[string]any{
