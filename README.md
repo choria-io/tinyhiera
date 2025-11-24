@@ -66,11 +66,12 @@ Given this focus, the needs will be a bit different and those are still being di
 TODO list:
 
  * [x] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
- * [x] Support interpolating data in values using [expr](https://expr-lang.org) 
+ * [x] Support [expr](https://expr-lang.org) to create hierarchy order
+ * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
  * [ ] Once `expr` support lands support data types for interpolated values
  * [x] Add a `--query` flag to the CLI to dig into the resulting data
  * [x] Rename `configuration` to more generic `data`
- * [ ] Move the overriding data from top level to `overrides`
+ * [x] Move the overriding data from top level to `overrides`
  * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
  
 ## Installation
@@ -105,17 +106,18 @@ data:
      listen_port: 80
      tls: false
 
-env:prod:
-  log_level: WARN
+overrides:
+    env:prod:
+      log_level: WARN
 
-role:web:
-  packages:
-    - nginx
-  web:
-    tls: true
+    role:web:
+      packages:
+        - nginx
+      web:
+        tls: true
 
-host:web01:
-  log_level: TRACE
+    host:web01:
+      log_level: TRACE
 ```
 
 See [GJSON Path Syntax](https://github.com/tidwall/gjson/blob/master/SYNTAX.md) for help in accessing nested facts. See [Expr Language Definition](https://expr-lang.org/docs/language-definition) for the query language
@@ -136,8 +138,10 @@ Given the input file `data.json`:
     "data": {
         "test": "value"
     },
-    "fqdn:my.fqdn.com": {
-        "test": "override"
+    "overrides": {
+        "fqdn:my.fqdn.com": {
+            "test": "override"
+        }
     }
 }
 ```
@@ -196,17 +200,18 @@ func main() {
      listen_port: 80
      tls: false
 
- env:prod:
-   log_level: WARN
+ overrides:
+     env:prod:
+       log_level: WARN
 
- role:web:
-   packages:
-     - nginx
-   web:
-     tls: true
+     role:web:
+       packages:
+         - nginx
+       web:
+         tls: true
 
- host:web01:
-   log_level: TRACE
+     host:web01:
+       log_level: TRACE
 `)
 
         facts := map[string]any{
@@ -248,9 +253,11 @@ config := map[string]any{
         "data": map[string]any{
                 "value": 1,
         },
-        "role:web": map[string]any{
+		"overrides": map[string]any{
+            "role:web": map[string]any{
                 "value": 2,
-        },
+            },
+        }
 }
 
 resolved, err := tinyhiera.Resolve(config, map[string]any{"role": "web"})
