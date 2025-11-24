@@ -6,7 +6,7 @@ import (
 )
 
 var _ = Describe("ResolveYaml", func() {
-	It("merges configuration deeply following hierarchy order", func() {
+	It("merges data deeply following hierarchy order", func() {
 		yamlData := []byte(`
 hierarchy:
   order:
@@ -16,7 +16,7 @@ hierarchy:
     - host:%{hostname}
   merge: deep
 
-configuration:
+data:
   log_level: INFO
   packages:
     - ca-certificates
@@ -64,7 +64,7 @@ hierarchy:
     - role:%{role}
   merge: first
 
-configuration:
+data:
   log_level: INFO
 
 env:stage:
@@ -91,10 +91,10 @@ var _ = Describe("Resolve", func() {
 	It("processes an already parsed map without mutating input", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"configuration", "role:%{role}"},
+				"order": []any{"data", "role:%{role}"},
 				"merge": "deep",
 			},
-			"configuration": map[string]any{
+			"data": map[string]any{
 				"value": 1,
 			},
 			"role:web": map[string]any{
@@ -114,10 +114,10 @@ var _ = Describe("Resolve", func() {
 
 		Expect(data).To(Equal(map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"configuration", "role:%{role}"},
+				"order": []any{"data", "role:%{role}"},
 				"merge": "deep",
 			},
-			"configuration": map[string]any{
+			"data": map[string]any{
 				"value": 1,
 			},
 			"role:web": map[string]any{
@@ -129,7 +129,7 @@ var _ = Describe("Resolve", func() {
 })
 
 var _ = Describe("parseHierarchy", func() {
-	It("extracts order and merge configuration", func() {
+	It("extracts order and merge data", func() {
 		// Ensures hierarchy parsing returns expected values when the structure is correct.
 		root := map[string]any{
 			"hierarchy": map[string]any{
