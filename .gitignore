@@ -1,6 +1,7 @@
 .idea
 test.json
 dist
-tinyhiera/tinyhiera
-tinyhiera/test.json
-tinyhiera/main
+cmd/tinyhiera
+cmd/test.json
+cmd/main
+tinyhiera

@@ -13,7 +13,7 @@ changelog:
 
 builds:
   - id: tinyhiera
-    main: ./tinyhiera
+    main: ./cmd
     binary: tinyhiera
     goos:
       - darwin
@@ -30,10 +30,10 @@ builds:
 archives:
   - name_template: "tinyhiera-{{.Version}}-{{.Os}}-{{.Arch}}{{if .Arm}}{{.Arm}}{{end}}"
     wrap_in_directory: true
-    format: tar.gz
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
-        format: zip
+        formats: [zip]
     files:
       - README.md
       - LICENSE
