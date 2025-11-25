@@ -193,10 +193,10 @@ $ tinyhiera parse test.json fqdn=other.fqdn.com --env
 HIERA_TEST=value
 ```
 
-In these examples we provided facts from a file or on the CLI, we can also populate the facts from an internal fact provider:
+In these examples we provided facts from a file or on the CLI, we can also populate the facts from an internal fact provider, first we view the internal facts:
 
 ```
-$ tinyhiera facts
+$ tinyhiera facts --system-facts
 {
   ....
   "host": {
@@ -217,6 +217,11 @@ $ tinyhiera facts
   }
 ....
 }
+```
+
+Now we resolve the data using those facts:
+
+```
 $ tinyhiera parse test.json --system-facts
 ```
 
