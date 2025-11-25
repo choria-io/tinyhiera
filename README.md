@@ -73,6 +73,7 @@ TODO list:
  * [x] Rename `configuration` to more generic `data`
  * [x] Move the overriding data from top level to `overrides`
  * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
+ * [x] Support emitting environment variables as output format in the CLI
  
 ## Installation
 

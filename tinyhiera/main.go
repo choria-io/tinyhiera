@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -17,6 +19,8 @@ var (
 	factsInput map[string]string
 	factsFile  string
 	yamlOutput bool
+	envOutput  bool
+	envPrefix  string
 	version    string
 	query      string
 )
@@ -33,6 +37,8 @@ func main() {
 	app.Flag("query", "Performs a gjson query on the result").StringVar(&query)
 	app.Flag("facts", "JSON or YAML file containing facts").ExistingFileVar(&factsFile)
 	app.Flag("yaml", "Output YAML instead of JSON").UnNegatableBoolVar(&yamlOutput)
+	app.Flag("env", "Output environment variables").UnNegatableBoolVar(&envOutput)
+	app.Flag("env-prefix", "Prefix for environment variable names").Default("HIERA").StringVar(&envPrefix)
 
 	app.MustParseWithUsage(os.Args[1:])
 }
@@ -86,16 +92,47 @@ func runAction(_ *fisk.ParseContext) error {
 	}
 
 	var out []byte
-	if yamlOutput {
+	switch {
+	case yamlOutput:
 		out, err = yaml.Marshal(res)
+	case envOutput:
+		buff := bytes.NewBuffer([]byte{})
+		err = renderEnvOutput(buff, res)
 		if err != nil {
 			return err
 		}
-	} else {
+		out = buff.Bytes()
+	default:
 		out = jout
+	}
+	if err != nil {
+		return err
 	}
 
 	fmt.Println(strings.TrimSpace(string(out)))
+
+	return nil
+}
+
+func renderEnvOutput(w io.Writer, res map[string]any) error {
+	for k, v := range res {
+		key := fmt.Sprintf("%s_%s", envPrefix, strings.ToUpper(k))
+
+		switch typed := v.(type) {
+		case string:
+			fmt.Fprintf(w, "%s=%s\n", key, typed)
+		case int8, int16, int32, int64, int:
+			fmt.Fprintf(w, "%s=%d\n", key, typed)
+		case float32, float64:
+			fmt.Fprintf(w, "%s=%f\n", key, typed)
+		default:
+			j, err := json.Marshal(typed)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(w, "%s=%s\n", key, string(j))
+		}
+	}
 
 	return nil
 }
