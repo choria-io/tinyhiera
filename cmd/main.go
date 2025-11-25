@@ -53,8 +53,12 @@ func main() {
 	parse.Flag("query", "Performs a gjson query on the result").StringVar(&query)
 	parse.Flag("debug", "Enables debug output").UnNegatableBoolVar(&debug)
 
-	facts := app.Command("facts", "Shows system facts").Action(showFactsAction)
-	facts.Arg("query", "Performs a gjson query on the facts").StringVar(&query)
+	facts := app.Command("facts", "Shows resolved facts").Action(showFactsAction)
+	facts.Arg("fact", "Facts about the node").StringMapVar(&factsInput)
+	facts.Flag("facts", "JSON or YAML file containing facts").ExistingFileVar(&factsFile)
+	facts.Flag("system-facts", "Provide facts from the internal facts provider").Short('S').UnNegatableBoolVar(&sysFacts)
+	facts.Flag("env-facts", "Provide facts from the process environment").Short('E').UnNegatableBoolVar(&envFacts)
+	facts.Flag("query", "Performs a gjson query on the facts").StringVar(&query)
 
 	app.PreAction(func(_ *fisk.ParseContext) error {
 		ctx, _ = signal.NotifyContext(context.Background(), os.Interrupt)
@@ -65,7 +69,7 @@ func main() {
 }
 
 func showFactsAction(_ *fisk.ParseContext) error {
-	facts, err := internal.StandardFacts(ctx)
+	facts, err := resolveFacts()
 	if err != nil {
 		return err
 	}
@@ -86,43 +90,9 @@ func showFactsAction(_ *fisk.ParseContext) error {
 	return nil
 }
 func runAction(_ *fisk.ParseContext) error {
-	facts := make(map[string]any)
-
-	if sysFacts {
-		sf, err := internal.StandardFacts(context.TODO())
-		if err != nil {
-			return err
-		}
-		for k, v := range sf {
-			facts[k] = v
-		}
-	}
-
-	if envFacts {
-		for _, v := range os.Environ() {
-			kv := strings.Split(v, "=")
-			facts[kv[0]] = kv[1]
-		}
-	}
-
-	if factsFile != "" {
-		fc, err := os.ReadFile(factsFile)
-		if err != nil {
-			return err
-		}
-
-		if isJson(fc) {
-			err = json.Unmarshal(fc, &facts)
-		} else {
-			err = yaml.Unmarshal(fc, &facts)
-		}
-		if err != nil {
-			return err
-		}
-	}
-
-	for k, v := range factsInput {
-		facts[k] = v
+	facts, err := resolveFacts()
+	if err != nil {
+		return err
 	}
 
 	data, err := os.ReadFile(input)
@@ -207,4 +177,47 @@ func isJson(data []byte) bool {
 	trimmed := strings.TrimSpace(string(data))
 
 	return strings.HasPrefix(string(trimmed), "{") || strings.HasPrefix(string(trimmed), "[")
+}
+
+func resolveFacts() (map[string]any, error) {
+	facts := make(map[string]any)
+
+	if sysFacts {
+		sf, err := internal.StandardFacts(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for k, v := range sf {
+			facts[k] = v
+		}
+	}
+
+	if envFacts {
+		for _, v := range os.Environ() {
+			kv := strings.Split(v, "=")
+			facts[kv[0]] = kv[1]
+		}
+	}
+
+	if factsFile != "" {
+		fc, err := os.ReadFile(factsFile)
+		if err != nil {
+			return nil, err
+		}
+
+		if isJson(fc) {
+			err = json.Unmarshal(fc, &facts)
+		} else {
+			err = yaml.Unmarshal(fc, &facts)
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	for k, v := range factsInput {
+		facts[k] = v
+	}
+
+	return facts, nil
 }
