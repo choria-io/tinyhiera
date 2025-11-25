@@ -8,7 +8,7 @@ Major features:
 
  * Lookup expressions based on a full language
  * Types are supported and lookups can return typed data
- * Command line tool
+ * Command line tool that includes built-in system facts
  * Go library
 
 ## Background
@@ -70,9 +70,11 @@ $ marionette apply manifest.json --facts facts.json
 
 And we could even compile this manifest to a executable binary that is statically compiled and have no dependencies - imagine `./setup --facts facts.json` and your node is configured.
 
+From above we can see the end goal is a single, self-container, configuration management manifest that includes data and management.
+
 ## Status
 
-This is now quite usable and full featured, we might make some changes in future - like the name might change - but I welcome early adopter feedback.
+This is now quite usable and full-featured, we might make some changes in future - like the name might change - but I welcome early adopter feedback.
 
 TODO list:
 
@@ -84,11 +86,18 @@ TODO list:
  * [x] Rename `configuration` to more generic `data`
  * [x] Move the overriding data from top level to `overrides`
  * [x] Support emitting environment variables as output format in the CLI
+ * [x] CLI supports built-in system facts that can be optionally enabled
+ * [x] CLI can use the environment as facts
  * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
  
 ## Installation
 
-Download the binaries from the release page
+Download the binaries from the release page, on MacOS you can use homebrew:
+
+```
+brew tap choria-io/tap
+brew install choria-io/tap/tinyhiera
+```
 
 ## Usage
 
@@ -160,11 +169,11 @@ Given the input file `data.json`:
 We can run the utility like this:
 
 ```
-$ tinyhiera data.json fqdn=my.fqdn.com
+$ tinyhiera parse data.json fqdn=my.fqdn.com
 {
   "test": "override"
 }
-$ tinyhiera data.json fqdn=other.fqdn.com
+$ tinyhiera parse data.json fqdn=other.fqdn.com
 {
   "test": "value"
 }
@@ -173,16 +182,51 @@ $ tinyhiera data.json fqdn=other.fqdn.com
 It can also produce YAML output:
 
 ```
-$ tinyhiera test.json fqdn=other.fqdn.com --yaml
+$ tinyhiera parse test.json fqdn=other.fqdn.com --yaml
 test: value
 ```
 
 It can also produce Environment Variable output:
 
 ```
-$ tinyhiera test.json fqdn=other.fqdn.com --env
+$ tinyhiera parse test.json fqdn=other.fqdn.com --env
 HIERA_TEST=value
 ```
+
+In these examples we provided facts from a file or on the CLI, we can also populate the facts from an internal fact provider:
+
+```
+$ tinyhiera facts
+{
+  ....
+  "host": {
+      "info": {
+          "hostname": "example.net",
+          "uptime": 3725832,
+          "bootTime": 1760351572,
+          "procs": 625,
+          "os": "darwin",
+          "platform": "darwin",
+          "platformFamily": "Standalone Workstation",
+          "platformVersion": "15.7.1",
+          "kernelVersion": "24.6.0",
+          "kernelArch": "arm64",
+          "virtualizationSystem": "",
+          "virtualizationRole": ""
+      }
+  }
+....
+}
+$ tinyhiera parse test.json --system-facts
+```
+
+We can also populate the environment variables as facts, variables will be split on the `=` and the variable name becomes a fact name.
+
+```
+$ tinyhiera parse test.json --env-facts
+```
+
+These facts will be merged with ones from the command line and external files and all can be combined
 
 ### Go example
 

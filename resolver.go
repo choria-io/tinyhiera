@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
 	"github.com/expr-lang/expr"
@@ -30,7 +31,7 @@ var (
 // Resolve consumes a parsed data document and a map of facts to produce a final data map.
 // The data map is expected to contain a hierarchy section, a base data section, and any number of overlays.
 // Placeholders in the hierarchy order (e.g. env:%{env}) are replaced with values from the provided facts map.
-func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) {
+func Resolve(root map[string]any, facts map[string]any, log Logger) (map[string]any, error) {
 	normalizedRoot, ok := normalizeNumericValues(root).(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("root document must be a map")
@@ -62,10 +63,19 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	}
 
 	for _, entry := range hierarchy.Order {
-		resolvedKey, err := applyFactsString(entry, facts)
+		resolvedKey, matched, err := applyFactsString(entry, facts)
 		if err != nil {
 			return nil, err
 		}
+
+		if !matched {
+			continue
+		}
+
+		if log != nil {
+			log.Debug("Evaluating override", "override", resolvedKey)
+		}
+
 		candidateKey := resolvedKey
 		if candidateKey == "data" && hasData {
 			continue
@@ -96,24 +106,24 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 
 // ResolveYaml consumes raw YAML bytes and a map of facts to produce a final data map.
 // The function decodes the YAML document and delegates processing to Resolve to perform merges and fact substitution.
-func ResolveYaml(data []byte, facts map[string]any) (map[string]any, error) {
+func ResolveYaml(data []byte, facts map[string]any, log Logger) (map[string]any, error) {
 	root := map[string]any{}
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	return Resolve(root, facts)
+	return Resolve(root, facts, log)
 }
 
 // ResolveJson consumes raw JSON bytes and a map of facts to produce a final data map.
 // The function decodes the JSON document and delegates processing to Resolve to perform merges and fact substitution.
-func ResolveJson(data []byte, facts map[string]any) (map[string]any, error) {
+func ResolveJson(data []byte, facts map[string]any, log Logger) (map[string]any, error) {
 	root := map[string]any{}
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
-	return Resolve(root, facts)
+	return Resolve(root, facts, log)
 }
 
 // parseHierarchy extracts the hierarchy definition from the raw YAML map.
@@ -184,12 +194,13 @@ func applyFactsTyped(template string, facts map[string]any) (any, error) {
 	case len(matches) == 1 && strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}"):
 		return exprParse(matches[0][1], facts)
 	default:
-		return applyFactsString(template, facts)
+		res, _, err := applyFactsString(template, facts)
+		return res, err
 	}
 }
 
 // applyFactsString parses {{ expression}} placeholders using expr and replace them with the resulting values
-func applyFactsString(template string, facts map[string]any) (string, error) {
+func applyFactsString(template string, facts map[string]any) (string, bool, error) {
 	// Matches: {{ something }}
 	// Capture group 1 = inner text
 	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
@@ -198,27 +209,42 @@ func applyFactsString(template string, facts map[string]any) (string, error) {
 
 	matches := re.FindAllStringSubmatchIndex(template, -1)
 	if matches == nil {
-		return template, nil // nothing to replace
+		// nothing to replace so we report that we matched because this string should be used for those who care about matching
+		return template, template != "", nil
 	}
 
 	// We will build the output incrementally
 	var result strings.Builder
 	lastIndex := 0
+	var matched []bool
 
 	for _, loc := range matches {
 		fullStart, fullEnd := loc[0], loc[1]
 		innerStart, innerEnd := loc[2], loc[3]
 
-		// Write everything before this match
-		result.WriteString(out[lastIndex:fullStart])
-
 		innerExpr := template[innerStart:innerEnd]
 
 		value, err := exprParse(innerExpr, facts)
 		if err != nil {
-			return "", err
+			return "", false, err
 		}
 
+		switch value.(type) {
+		case string:
+			if value == "" {
+				matched = append(matched, false)
+			} else {
+				matched = append(matched, true)
+			}
+		case nil:
+			matched = append(matched, false)
+		default:
+			matched = append(matched, true)
+		}
+
+		// Write everything before this match
+		result.WriteString(out[lastIndex:fullStart])
+		// Now the match
 		result.WriteString(fmt.Sprint(value))
 
 		lastIndex = fullEnd
@@ -227,7 +253,7 @@ func applyFactsString(template string, facts map[string]any) (string, error) {
 	// Append any remainder after last match
 	result.WriteString(out[lastIndex:])
 
-	return result.String(), nil
+	return result.String(), slices.Contains(matched, true), nil
 }
 
 func exprParse(query string, facts map[string]any) (any, error) {

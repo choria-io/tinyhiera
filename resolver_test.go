@@ -44,7 +44,7 @@ overrides:
 			"hostname": "web01",
 		}
 
-		result, err := ResolveYaml(yamlData, facts)
+		result, err := ResolveYaml(yamlData, facts, nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(result).To(Equal(map[string]any{
@@ -81,7 +81,7 @@ overrides:
 			"role": "web",
 		}
 
-		result, err := ResolveYaml(yamlData, facts)
+		result, err := ResolveYaml(yamlData, facts, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"log_level": "DEBUG",
@@ -111,7 +111,7 @@ var _ = Describe("Resolve", func() {
 
 		facts := map[string]any{"role": "WEB", "value": 1, "list": []any{1}, "other": map[string]any{"key": "other"}}
 
-		result, err := Resolve(data, facts)
+		result, err := Resolve(data, facts, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"value": 1,
@@ -139,7 +139,7 @@ var _ = Describe("Resolve", func() {
 
 		facts := map[string]any{"role": "WEB"}
 
-		result, err := Resolve(data, facts)
+		result, err := Resolve(data, facts, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"value": 2,
@@ -196,25 +196,29 @@ var _ = Describe("parseHierarchy", func() {
 var _ = Describe("applyFactsString", func() {
 	It("replaces placeholders with fact values", func() {
 		// Verifies templated segments are substituted when facts are available.
-		result, err := applyFactsString("role:{{ lookup('role') }}", map[string]any{"role": "web"})
+		result, matched, err := applyFactsString("role:{{ lookup('role') }}", map[string]any{"role": "web"})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(matched).To(BeTrue())
 		Expect(result).To(Equal("role:web"))
 	})
 
 	It("drops placeholders when facts are missing", func() {
 		// Confirms missing fact keys result in empty substitutions.
-		result, err := applyFactsString("env:{{ lookup('unknown') }}", map[string]any{})
+		result, matched, err := applyFactsString("env:{{ lookup('unknown') }}", map[string]any{})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(matched).To(BeFalse())
 		Expect(result).To(Equal("env:"))
 	})
 
 	It("Should support gjson lookups", func() {
-		result, err := applyFactsString("{{ lookup('node.fqdn') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, matched, err := applyFactsString("{{ lookup('node.fqdn') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(matched).To(BeTrue())
 		Expect(result).To(Equal("example.com"))
 
-		result, err = applyFactsString("{{ lookup('node.foo') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, matched, err = applyFactsString("{{ lookup('node.foo') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
 		Expect(err).NotTo(HaveOccurred())
+		Expect(matched).To(BeFalse())
 		Expect(result).To(Equal(""))
 	})
 })
