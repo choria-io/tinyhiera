@@ -1,18 +1,27 @@
-# TinyHiera
+# Tiny Hiera
 
-TinyHiera is a small data resolver inspired by Hiera. It evaluates a YAML document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
+Tiny Hiera is a small data resolver inspired by Hiera. It evaluates a YAML or JSON document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
 
 It is optimized for single files that hold the hierarchy and data rather than the multi file approach common in Hiera.
 
-It is typed and can return numbers, arrays and maps from template values. Being that it is driven by an expression language values can have their types changed in lookups.
+Major features:
 
-This is an experiment at the moment to see how I can solve a specific need, my goal is to create a small-scale configuration management system suitable for running in a Choria Autonomous Agent.
+ * Lookup expressions based on a full language
+ * Types are supported and lookups can return typed data
+ * Command line tool
+ * Go library
+
+## Background
+
+My goal is to create a small-scale Configuration Management system suitable for running in shell scripts, standalone or in a Choria Autonomous Agent.
 
 Autonomous Agents focus on managing a single thing, like an application, and owns the entire lifecycle of that application including monitoring, remediation, upgrades and everything.  In that context the data needs are simple - essentially those of a single Puppet module.
 
-So this Hiera, while being Hiera inspired, will be quite different.  It will not be orientated around single-key lookup but rather in resolving the entire data structure in one go and handing it back fully resolved.
+So the focus here is how we would create standalone management systems that, essentially, owns what one single Puppet module would own. More and more we are moving to single purpose nodes, containers, pods etc and I want to make something for that world.
 
-The end goal is to have some CLI tooling that allows for this:
+So this Hiera, while being Hiera inspired, is quite different.  It is not orientated around single-key lookup but rather in resolving the entire data structure in one go and handing it back fully resolved.
+
+The end goal is to have a CLI Configuration Management tool that allows for this:
 
 ```nohighlight
 # Like the Puppet RAL but for CLI, supports multiple package systems etc
@@ -63,7 +72,7 @@ And we could even compile this manifest to a executable binary that is staticall
 
 ## Status
 
-Given this focus, the needs will be a bit different and those are still being discovered. You're welcome to share ideas and feedback but I'd hold off on using this just yet.
+This is now quite usable and full featured, we might make some changes in future - like the name might change - but I welcome early adopter feedback.
 
 TODO list:
 
@@ -79,9 +88,7 @@ TODO list:
  
 ## Installation
 
-```
-go get github.com/choria-io/tinyhiera
-```
+Download the binaries from the release page
 
 ## Usage
 
@@ -168,6 +175,13 @@ It can also produce YAML output:
 ```
 $ tinyhiera test.json fqdn=other.fqdn.com --yaml
 test: value
+```
+
+It can also produce Environment Variable output:
+
+```
+$ tinyhiera test.json fqdn=other.fqdn.com --env
+HIERA_TEST=value
 ```
 
 ### Go example
@@ -271,12 +285,4 @@ if err != nil {
 
 fmt.Println(resolved)
 // Output: map[value:2]
-```
-
-## Testing
-
-The project uses Ginkgo and Gomega for testing. Run the suite with:
-
-```
-go test ./...
 ```
