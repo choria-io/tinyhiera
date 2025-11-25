@@ -90,6 +90,36 @@ overrides:
 })
 
 var _ = Describe("Resolve", func() {
+	It("Should expand expr placeholders in override values", func() {
+		data := map[string]any{
+			"hierarchy": map[string]any{
+				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
+				"merge": "first",
+			},
+			"data": map[string]any{
+				"value": 1,
+				"list":  []any{1},
+				"other": "{{ lookup('other') }}",
+			},
+			"overrides": map[string]any{
+				"role:web": map[string]any{
+					"list":  "{{ lookup('list') }}",
+					"value": "{{ lookup('value') | int() }}",
+				},
+			},
+		}
+
+		facts := map[string]any{"role": "WEB", "value": 1, "list": []any{1}, "other": map[string]any{"key": "other"}}
+
+		result, err := Resolve(data, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"value": 1,
+			"list":  []any{float64(1)}, // gjson converts to json first and there numbers become floats
+			"other": map[string]any{"key": "other"},
+		}))
+	})
+
 	It("processes an already parsed map without mutating input", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
@@ -163,29 +193,172 @@ var _ = Describe("parseHierarchy", func() {
 	})
 })
 
-var _ = Describe("applyFacts", func() {
+var _ = Describe("applyFactsString", func() {
 	It("replaces placeholders with fact values", func() {
 		// Verifies templated segments are substituted when facts are available.
-		result, err := applyFacts("role:{{ lookup('role') }}", map[string]any{"role": "web"})
+		result, err := applyFactsString("role:{{ lookup('role') }}", map[string]any{"role": "web"})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("role:web"))
 	})
 
 	It("drops placeholders when facts are missing", func() {
 		// Confirms missing fact keys result in empty substitutions.
-		result, err := applyFacts("env:{{ lookup('unknown') }}", map[string]any{})
+		result, err := applyFactsString("env:{{ lookup('unknown') }}", map[string]any{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("env:"))
 	})
 
 	It("Should support gjson lookups", func() {
-		result, err := applyFacts("{{ lookup('node.fqdn') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, err := applyFactsString("{{ lookup('node.fqdn') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal("example.com"))
 
-		result, err = applyFacts("{{ lookup('node.foo') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
+		result, err = applyFactsString("{{ lookup('node.foo') }}", map[string]any{"node": map[string]any{"fqdn": "example.com"}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(""))
+	})
+})
+
+var _ = Describe("expandExprValuesRecursively", func() {
+	It("expands expr placeholders in string values", func() {
+		// Verifies that string values with {{ ... }} placeholders are properly expanded.
+		facts := map[string]any{"env": "production", "port": 8080}
+		result, err := expandExprValuesRecursively("Environment: {{ lookup('env') }}", facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal("Environment: production"))
+	})
+
+	It("returns non-string primitives unchanged", func() {
+		// Ensures that integers, booleans, and floats pass through without modification.
+		facts := map[string]any{}
+
+		intResult, err := expandExprValuesRecursively(42, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(intResult).To(Equal(42))
+
+		boolResult, err := expandExprValuesRecursively(true, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(boolResult).To(Equal(true))
+
+		floatResult, err := expandExprValuesRecursively(3.14, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(floatResult).To(Equal(3.14))
+	})
+
+	It("recursively expands strings in maps", func() {
+		// Validates that nested map values are processed recursively.
+		facts := map[string]any{"hostname": "web01", "env": "prod"}
+		input := map[string]any{
+			"host": "{{ lookup('hostname') }}",
+			"config": map[string]any{
+				"environment": "{{ lookup('env') }}",
+				"port":        8080,
+			},
+		}
+
+		result, err := expandExprValuesRecursively(input, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"host": "web01",
+			"config": map[string]any{
+				"environment": "prod",
+				"port":        8080,
+			},
+		}))
+	})
+
+	It("recursively expands strings in slices", func() {
+		// Confirms that slice elements are expanded recursively.
+		facts := map[string]any{"prefix": "/var/log"}
+		input := []any{
+			"{{ lookup('prefix') }}/app.log",
+			"{{ lookup('prefix') }}/error.log",
+			42,
+		}
+
+		result, err := expandExprValuesRecursively(input, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal([]any{
+			"/var/log/app.log",
+			"/var/log/error.log",
+			42,
+		}))
+	})
+
+	It("handles deeply nested structures", func() {
+		// Tests processing of complex nested maps and slices.
+		facts := map[string]any{"region": "us-east", "tier": "frontend"}
+		input := map[string]any{
+			"metadata": map[string]any{
+				"region": "{{ lookup('region') }}",
+				"tags": []any{
+					"{{ lookup('tier') }}",
+					"production",
+				},
+			},
+			"instances": []any{
+				map[string]any{
+					"name": "server-{{ lookup('tier') }}-01",
+					"port": 8080,
+				},
+			},
+		}
+
+		result, err := expandExprValuesRecursively(input, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"metadata": map[string]any{
+				"region": "us-east",
+				"tags": []any{
+					"frontend",
+					"production",
+				},
+			},
+			"instances": []any{
+				map[string]any{
+					"name": "server-frontend-01",
+					"port": 8080,
+				},
+			},
+		}))
+	})
+
+	It("returns an error when expr evaluation fails", func() {
+		// Ensures that invalid expressions propagate errors correctly.
+		facts := map[string]any{}
+		input := map[string]any{
+			"invalid": "{{ undefined_function() }}",
+		}
+
+		_, err := expandExprValuesRecursively(input, facts)
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("supports expr operations in placeholders", func() {
+		// Verifies that expr operations like filters work within placeholders.
+		facts := map[string]any{"role": "WEB"}
+		input := map[string]any{
+			"role": "{{ lookup('role') | lower() }}",
+		}
+
+		result, err := expandExprValuesRecursively(input, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"role": "web",
+		}))
+	})
+
+	It("handles empty maps and slices", func() {
+		// Confirms that empty containers are processed without error.
+		facts := map[string]any{}
+
+		emptyMap, err := expandExprValuesRecursively(map[string]any{}, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(emptyMap).To(Equal(map[string]any{}))
+
+		emptySlice, err := expandExprValuesRecursively([]any{}, facts)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(emptySlice).To(Equal([]any{}))
 	})
 })
 

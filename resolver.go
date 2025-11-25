@@ -50,7 +50,10 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	base := map[string]any{}
 	data, hasData := root["data"].(map[string]any)
 	if hasData {
-		base = cloneMap(data)
+		base, err = expandMapExprValues(cloneMap(data), facts)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	mergeMode := strings.ToLower(hierarchy.Merge)
@@ -59,7 +62,7 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 	}
 
 	for _, entry := range hierarchy.Order {
-		resolvedKey, err := applyFacts(entry, facts)
+		resolvedKey, err := applyFactsString(entry, facts)
 		if err != nil {
 			return nil, err
 		}
@@ -72,7 +75,10 @@ func Resolve(root map[string]any, facts map[string]any) (map[string]any, error) 
 			continue
 		}
 
-		// TODO: expr the data recursively
+		candidate, err = expandMapExprValues(cloneMap(candidate), facts)
+		if err != nil {
+			return nil, err
+		}
 
 		switch mergeMode {
 		case "deep":
@@ -137,30 +143,57 @@ func parseHierarchy(root map[string]any) (Hierarchy, error) {
 }
 
 func genExprEnv(facts map[string]any) (map[string]any, error) {
-	j, err := json.Marshal(facts)
+	env := cloneMap(facts)
+
+	// do not try to json marshal these functions
+	delete(env, "lookup")
+
+	j, err := json.Marshal(env)
 	if err != nil {
 		return nil, err
 	}
 
-	facts["lookup"] = func(key string) (any, error) {
+	env["lookup"] = func(key string) (any, error) {
 		res := gjson.GetBytes(j, key)
 		if res.Exists() {
+			if res.Type == gjson.Number {
+				if strings.Contains(res.Raw, ".") {
+					return res.Float(), nil
+				} else {
+					return res.Int(), nil
+				}
+			}
+
 			return res.Value(), nil
 		}
 
 		return "", nil
 	}
 
-	return facts, nil
+	return env, nil
 }
 
-// applyFacts parses {{ expression}} placeholders using expr and replace them with the resulting values
-func applyFacts(template string, facts map[string]any) (string, error) {
+func applyFactsTyped(template string, facts map[string]any) (any, error) {
+	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
+	trimmed := strings.TrimSpace(template)
+
+	matches := re.FindAllStringSubmatch(template, -1)
+	switch {
+	case matches == nil:
+		return template, nil
+	case len(matches) == 1 && strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}"):
+		return exprParse(matches[0][1], facts)
+	default:
+		return applyFactsString(template, facts)
+	}
+}
+
+// applyFactsString parses {{ expression}} placeholders using expr and replace them with the resulting values
+func applyFactsString(template string, facts map[string]any) (string, error) {
 	// Matches: {{ something }}
 	// Capture group 1 = inner text
 	re := regexp.MustCompile(`{{\s*(.*?)\s*}}`)
 
-	factsCopy := cloneMap(facts)
 	out := template
 
 	matches := re.FindAllStringSubmatchIndex(template, -1)
@@ -181,23 +214,11 @@ func applyFacts(template string, facts map[string]any) (string, error) {
 
 		innerExpr := template[innerStart:innerEnd]
 
-		// Compile and run the expression
-		env, err := genExprEnv(factsCopy)
+		value, err := exprParse(innerExpr, facts)
 		if err != nil {
 			return "", err
 		}
 
-		program, err := expr.Compile(innerExpr, expr.Env(env))
-		if err != nil {
-			return "", fmt.Errorf("expr compile error for '%s': %w", innerExpr, err)
-		}
-
-		value, err := expr.Run(program, env)
-		if err != nil {
-			return "", fmt.Errorf("expr run error for '%s': %w", innerExpr, err)
-		}
-
-		// Convert result to string
 		result.WriteString(fmt.Sprint(value))
 
 		lastIndex = fullEnd
@@ -207,6 +228,67 @@ func applyFacts(template string, facts map[string]any) (string, error) {
 	result.WriteString(out[lastIndex:])
 
 	return result.String(), nil
+}
+
+func exprParse(query string, facts map[string]any) (any, error) {
+	env, err := genExprEnv(facts)
+	if err != nil {
+		return "", err
+	}
+
+	program, err := expr.Compile(query, expr.Env(env))
+	if err != nil {
+		return "", fmt.Errorf("expr compile error for '%s': %w", query, err)
+	}
+
+	return expr.Run(program, env)
+}
+
+func expandMapExprValues(value map[string]any, facts map[string]any) (map[string]any, error) {
+	for k, v := range value {
+		nv, err := expandExprValuesRecursively(v, facts)
+		if err != nil {
+			return nil, err
+		}
+		value[k] = nv
+	}
+
+	return value, nil
+}
+
+// expandExprValuesRecursively walks a data structure and replaces {{ expression }} placeholders in all string values.
+// Maps and slices are recursively processed, while other types are returned unchanged.
+func expandExprValuesRecursively(value any, facts map[string]any) (any, error) {
+	switch typed := value.(type) {
+	case string:
+		// Apply expr template expansion to string values
+		return applyFactsTyped(typed, facts)
+	case map[string]any:
+		// Recursively process all map values
+		result := make(map[string]any, len(typed))
+		for key, val := range typed {
+			expanded, err := expandExprValuesRecursively(val, facts)
+			if err != nil {
+				return nil, err
+			}
+			result[key] = expanded
+		}
+		return result, nil
+	case []any:
+		// Recursively process all slice elements
+		result := make([]any, len(typed))
+		for i, val := range typed {
+			expanded, err := expandExprValuesRecursively(val, facts)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = expanded
+		}
+		return result, nil
+	default:
+		// Return non-string, non-container types unchanged (int, bool, float, etc.)
+		return typed, nil
+	}
 }
 
 // normalizeNumericValues walks a decoded YAML structure and converts numeric values into int when they safely fit the
@@ -240,14 +322,8 @@ func normalizeNumericValues(value any) any {
 			return int(typed)
 		}
 		return typed
-	case int:
+	case int, int8, int16, int32:
 		return typed
-	case int8:
-		return int(typed)
-	case int16:
-		return int(typed)
-	case int32:
-		return int(typed)
 	case uint:
 		if typed <= uint(maxInt) {
 			return int(typed)

@@ -4,6 +4,8 @@ TinyHiera is a small data resolver inspired by Hiera. It evaluates a YAML docume
 
 It is optimized for single files that hold the hierarchy and data rather than the multi file approach common in Hiera.
 
+It is typed and can return numbers, arrays and maps from template values. Being that it is driven by an expression language values can have their types changed in lookups.
+
 This is an experiment at the moment to see how I can solve a specific need, my goal is to create a small-scale configuration management system suitable for running in a Choria Autonomous Agent.
 
 Autonomous Agents focus on managing a single thing, like an application, and owns the entire lifecycle of that application including monitoring, remediation, upgrades and everything.  In that context the data needs are simple - essentially those of a single Puppet module.
@@ -67,13 +69,13 @@ TODO list:
 
  * [x] Move away from `${...}` to `{{ ... }}` this feels a bit more modern and aligns more with Choria
  * [x] Support [expr](https://expr-lang.org) to create hierarchy order
- * [ ] Support interpolating data in values using [expr](https://expr-lang.org) 
- * [ ] Once `expr` support lands support data types for interpolated values
+ * [x] Support interpolating data in values using [expr](https://expr-lang.org) 
+ * [x] Once `expr` support lands support data types for interpolated values
  * [x] Add a `--query` flag to the CLI to dig into the resulting data
  * [x] Rename `configuration` to more generic `data`
  * [x] Move the overriding data from top level to `overrides`
- * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
  * [x] Support emitting environment variables as output format in the CLI
+ * [ ] Move to a dependency for deep merges, the implementation here is a bit meh
  
 ## Installation
 
@@ -104,7 +106,8 @@ data:
    packages:
      - ca-certificates
    web:
-     listen_port: 80
+     # we look up the number and convert its type to a int if the facts was not already an int
+     listen_port: "{{ lookup('listen_port') | int() }}"
      tls: false
 
 overrides:
