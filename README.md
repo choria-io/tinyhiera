@@ -1,13 +1,13 @@
-# Tiny Hiera
+# Choria Hierarchical Data Resolver
 
-Tiny Hiera is a small data resolver inspired by Hiera. It evaluates a YAML or JSON document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
+Choria Hierarchical Data Resolver (aka `tinyhiera`) is a small data resolver inspired by Hiera. It evaluates a YAML or JSON document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
 
-It is optimized for single files that hold the hierarchy and data rather than the multi file approach common in Hiera.
+It is optimized for single files that hold the hierarchy and data rather than the multi-file approach common in Hiera.
 
 Major features:
 
  * Lookup expressions based on a full language
- * Types are supported and lookups can return typed data
+ * Types are supported, and lookups can return typed data
  * Command line tool that includes built-in system facts
  * Go library
 
@@ -123,7 +123,7 @@ data:
      - ca-certificates
    web:
      # we look up the number and convert its type to a int if the facts was not already an int
-     listen_port: "{{ lookup('listen_port') | int() }}"
+     listen_port: 80
      tls: false
 
 overrides:
@@ -134,6 +134,7 @@ overrides:
       packages:
         - nginx
       web:
+        listen_port: 443
         tls: true
 
     host:web01:
