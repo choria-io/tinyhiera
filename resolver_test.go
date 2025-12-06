@@ -14,10 +14,10 @@ var _ = Describe("ResolveYaml", func() {
 		yamlData := []byte(`
 hierarchy:
   order:
-    - other:{{ lookup('other', 'other') }}
-    - env:{{ lookup('env') }}
-    - role:{{ lookup('role') }}
-    - host:{{ lookup('hostname') }}
+    - other:{{ lookup('facts.other', 'other') }}
+    - env:{{ lookup('facts.env') }}
+    - role:{{ lookup('facts.role') }}
+    - host:{{ lookup('facts.hostname') }}
     - global
   merge: deep
 data:
@@ -71,8 +71,8 @@ overrides:
 		yamlData := []byte(`
 hierarchy:
   order:
-    - env:{{ lookup('env') }}
-    - role:{ lookup('role') }}
+    - env:{{ lookup('facts.env') }}
+    - role:{ lookup('facts.role') }}
   merge: first
 
 data:
@@ -132,7 +132,7 @@ var _ = Describe("Resolve", func() {
 			},
 			"overrides": map[string]any{
 				"default": map[string]any{
-					"value": "{{ lookup('value') | int() }}",
+					"value": "{{ lookup('facts.value') | int() }}",
 				},
 			},
 		}
@@ -149,18 +149,18 @@ var _ = Describe("Resolve", func() {
 	It("Should expand expr placeholders in override values", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
+				"order": []any{"data", "role:{{ lookup('facts.role') | lower() }}"},
 				"merge": "first",
 			},
 			"data": map[string]any{
 				"value": 1,
 				"list":  []any{1},
-				"other": "{{ lookup('other') }}",
+				"other": "{{ lookup('facts.other') }}",
 			},
 			"overrides": map[string]any{
 				"role:web": map[string]any{
-					"list":  "{{ lookup('list') }}",
-					"value": "{{ lookup('value') | int() }}",
+					"list":  "{{ lookup('facts.list') }}",
+					"value": "{{ lookup('facts.value') | int() }}",
 				},
 			},
 		}
@@ -179,7 +179,7 @@ var _ = Describe("Resolve", func() {
 	It("processes an already parsed map without mutating input", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
+				"order": []any{"data", "role:{{ lookup('facts.role') | lower() }}"},
 				"merge": "deep",
 			},
 			"data": map[string]any{
@@ -204,7 +204,7 @@ var _ = Describe("Resolve", func() {
 
 		Expect(data).To(Equal(map[string]any{
 			"hierarchy": map[string]any{
-				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
+				"order": []any{"data", "role:{{ lookup('facts.role') | lower() }}"},
 				"merge": "deep",
 			},
 			"data": map[string]any{
