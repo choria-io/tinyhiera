@@ -53,7 +53,7 @@ overrides:
 			"other":    "stuff",
 		}
 
-		result, err := ResolveYaml(yamlData, facts, nil)
+		result, err := ResolveYaml(yamlData, facts, DefaultOptions, nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(result).To(Equal(map[string]any{
@@ -91,7 +91,7 @@ overrides:
 			"role": "web",
 		}
 
-		result, err := ResolveYaml(yamlData, facts, nil)
+		result, err := ResolveYaml(yamlData, facts, DefaultOptions, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"log_level": "DEBUG",
@@ -100,6 +100,31 @@ overrides:
 })
 
 var _ = Describe("Resolve", func() {
+	It("Should support changing the data key", func() {
+		data := map[string]any{
+			"hierarchy": map[string]any{
+				"order": []any{"data", "role:{{ lookup('role') | lower() }}"},
+				"merge": "first",
+			},
+			"config": map[string]any{
+				"value": 1,
+			},
+			"overrides": map[string]any{
+				"role:web": map[string]any{
+					"value": "{{ lookup('value') | int() }}",
+				},
+			},
+		}
+
+		facts := map[string]any{"role": "WEB", "value": 1}
+
+		result, err := Resolve(data, facts, Options{DataKey: "config"}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"value": 1,
+		}))
+	})
+
 	It("Should expand expr placeholders in override values", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
@@ -121,7 +146,7 @@ var _ = Describe("Resolve", func() {
 
 		facts := map[string]any{"role": "WEB", "value": 1, "list": []any{1}, "other": map[string]any{"key": "other"}}
 
-		result, err := Resolve(data, facts, nil)
+		result, err := Resolve(data, facts, DefaultOptions, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"value": 1,
@@ -149,7 +174,7 @@ var _ = Describe("Resolve", func() {
 
 		facts := map[string]any{"role": "WEB"}
 
-		result, err := Resolve(data, facts, nil)
+		result, err := Resolve(data, facts, DefaultOptions, nil)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result).To(Equal(map[string]any{
 			"value": 2,
