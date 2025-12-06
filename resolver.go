@@ -25,6 +25,14 @@ type Hierarchy struct {
 	Merge string `yaml:"merge"`
 }
 
+type Options struct {
+	DataKey string
+}
+
+var DefaultOptions = Options{
+	DataKey: "data",
+}
+
 var (
 	// maxInt represents the largest int value for the current architecture and is used to safely normalize numeric types.
 	maxInt = int(^uint(0) >> 1)
@@ -35,7 +43,11 @@ var (
 // Resolve consumes a parsed data document and a map of facts to produce a final data map.
 // The data map is expected to contain a hierarchy section, a base data section, and any number of overlays.
 // Placeholders in the hierarchy order (e.g. env:%{env}) are replaced with values from the provided facts map.
-func Resolve(root map[string]any, facts map[string]any, log Logger) (map[string]any, error) {
+func Resolve(root map[string]any, facts map[string]any, opts Options, log Logger) (map[string]any, error) {
+	if opts.DataKey == "" {
+		opts.DataKey = "data"
+	}
+
 	normalizedRoot, ok := normalizeNumericValues(root).(map[string]any)
 	if !ok {
 		return nil, fmt.Errorf("root document must be a map")
@@ -53,7 +65,7 @@ func Resolve(root map[string]any, facts map[string]any, log Logger) (map[string]
 	}
 
 	base := map[string]any{}
-	data, hasData := root["data"].(map[string]any)
+	data, hasData := root[opts.DataKey].(map[string]any)
 	if hasData {
 		base, err = expandMapExprValues(cloneMap(data), facts)
 		if err != nil {
@@ -81,7 +93,7 @@ func Resolve(root map[string]any, facts map[string]any, log Logger) (map[string]
 		}
 
 		candidateKey := resolvedKey
-		if candidateKey == "data" && hasData {
+		if candidateKey == opts.DataKey && hasData {
 			continue
 		}
 		candidate, ok := overrides[candidateKey].(map[string]any)
@@ -110,24 +122,24 @@ func Resolve(root map[string]any, facts map[string]any, log Logger) (map[string]
 
 // ResolveYaml consumes raw YAML bytes and a map of facts to produce a final data map.
 // The function decodes the YAML document and delegates processing to Resolve to perform merges and fact substitution.
-func ResolveYaml(data []byte, facts map[string]any, log Logger) (map[string]any, error) {
+func ResolveYaml(data []byte, facts map[string]any, opts Options, log Logger) (map[string]any, error) {
 	root := map[string]any{}
 	if err := yaml.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	return Resolve(root, facts, log)
+	return Resolve(root, facts, opts, log)
 }
 
 // ResolveJson consumes raw JSON bytes and a map of facts to produce a final data map.
 // The function decodes the JSON document and delegates processing to Resolve to perform merges and fact substitution.
-func ResolveJson(data []byte, facts map[string]any, log Logger) (map[string]any, error) {
+func ResolveJson(data []byte, facts map[string]any, opts Options, log Logger) (map[string]any, error) {
 	root := map[string]any{}
 	if err := json.Unmarshal(data, &root); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON: %w", err)
 	}
 
-	return Resolve(root, facts, log)
+	return Resolve(root, facts, opts, log)
 }
 
 // parseHierarchy extracts the hierarchy definition from the raw YAML map.

@@ -328,7 +328,7 @@ config := map[string]any{
         }
 }
 
-resolved, err := tinyhiera.Resolve(config, map[string]any{"role": "web"})
+resolved, err := tinyhiera.Resolve(config, map[string]any{"role": "web"}, tinyhiera.DefaultOptions, slog.New())
 if err != nil {
         panic(err)
 }

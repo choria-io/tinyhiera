@@ -27,6 +27,7 @@ var (
 	yamlOutput bool
 	envOutput  bool
 	envPrefix  string
+	dataKey    string
 	version    string
 	query      string
 	debug      bool
@@ -51,6 +52,7 @@ func main() {
 	parse.Flag("env", "Output environment variables").UnNegatableBoolVar(&envOutput)
 	parse.Flag("env-prefix", "Prefix for environment variable names").Default("HIERA").StringVar(&envPrefix)
 	parse.Flag("query", "Performs a gjson query on the result").StringVar(&query)
+	parse.Flag("data", "Sets the data key").Default("data").StringVar(&dataKey)
 	parse.Flag("debug", "Enables debug output").UnNegatableBoolVar(&debug)
 
 	facts := app.Command("facts", "Shows resolved facts").Action(showFactsAction)
@@ -108,9 +110,9 @@ func runAction(_ *fisk.ParseContext) error {
 	}
 
 	if isJson(data) {
-		res, err = tinyhiera.ResolveJson(data, facts, logger)
+		res, err = tinyhiera.ResolveJson(data, facts, tinyhiera.Options{DataKey: dataKey}, logger)
 	} else {
-		res, err = tinyhiera.ResolveYaml(data, facts, logger)
+		res, err = tinyhiera.ResolveYaml(data, facts, tinyhiera.Options{DataKey: dataKey}, logger)
 	}
 	if err != nil {
 		return err
