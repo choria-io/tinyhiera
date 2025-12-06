@@ -125,6 +125,27 @@ var _ = Describe("Resolve", func() {
 		}))
 	})
 
+	It("Should set a default hierarchy", func() {
+		data := map[string]any{
+			"config": map[string]any{
+				"value": 1,
+			},
+			"overrides": map[string]any{
+				"default": map[string]any{
+					"value": "{{ lookup('value') | int() }}",
+				},
+			},
+		}
+
+		facts := map[string]any{"role": "WEB", "value": 1}
+
+		result, err := Resolve(data, facts, Options{DataKey: "config"}, nil)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(result).To(Equal(map[string]any{
+			"value": 1,
+		}))
+	})
+
 	It("Should expand expr placeholders in override values", func() {
 		data := map[string]any{
 			"hierarchy": map[string]any{
