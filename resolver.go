@@ -38,6 +38,10 @@ var (
 	maxInt = int(^uint(0) >> 1)
 	// minInt represents the smallest int value for the current architecture and is used to safely normalize numeric types.
 	minInt = -maxInt - 1
+
+	DefaultHierarchy = map[string]any{
+		"order": []any{"default"},
+	}
 )
 
 // Resolve consumes a parsed data document and a map of facts to produce a final data map.
@@ -46,6 +50,11 @@ var (
 func Resolve(root map[string]any, facts map[string]any, opts Options, log Logger) (map[string]any, error) {
 	if opts.DataKey == "" {
 		opts.DataKey = "data"
+	}
+
+	_, ok := root["hierarchy"]
+	if !ok {
+		root["hierarchy"] = DefaultHierarchy
 	}
 
 	normalizedRoot, ok := normalizeNumericValues(root).(map[string]any)
@@ -146,6 +155,7 @@ func ResolveJson(data []byte, facts map[string]any, opts Options, log Logger) (m
 func parseHierarchy(root map[string]any) (Hierarchy, error) {
 	raw, ok := root["hierarchy"].(map[string]any)
 	if !ok {
+		root["hierarchy"] = map[string]any{}
 		return Hierarchy{}, fmt.Errorf("hierarchy section is required")
 	}
 
