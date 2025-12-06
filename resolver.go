@@ -73,10 +73,14 @@ func Resolve(root map[string]any, facts map[string]any, opts Options, log Logger
 		return nil, err
 	}
 
+	env := map[string]any{
+		"facts": facts,
+	}
+
 	base := map[string]any{}
 	data, hasData := root[opts.DataKey].(map[string]any)
 	if hasData {
-		base, err = expandMapExprValues(cloneMap(data), facts)
+		base, err = expandMapExprValues(cloneMap(data), env)
 		if err != nil {
 			return nil, err
 		}
@@ -88,7 +92,7 @@ func Resolve(root map[string]any, facts map[string]any, opts Options, log Logger
 	}
 
 	for _, entry := range hierarchy.Order {
-		resolvedKey, matched, err := applyFactsString(entry, facts)
+		resolvedKey, matched, err := applyFactsString(entry, env)
 		if err != nil {
 			return nil, err
 		}
@@ -110,7 +114,7 @@ func Resolve(root map[string]any, facts map[string]any, opts Options, log Logger
 			continue
 		}
 
-		candidate, err = expandMapExprValues(cloneMap(candidate), facts)
+		candidate, err = expandMapExprValues(cloneMap(candidate), env)
 		if err != nil {
 			return nil, err
 		}

@@ -111,9 +111,9 @@ hierarchy:
     #
     # if your fact is nested, you can use gjson format queries like via the lookup function {{ lookup('networking.fqdn') }}
     order:
-     - env:{{ lookup('env') }}
-     - role:{{ lookup('role') }}
-     - host:{{ lookup('hostname') }}
+     - env:{{ lookup('facts.env') }}
+     - role:{{ lookup('facts.role') }}
+     - host:{{ lookup('facts.hostname') }}
     merge: deep # or first
 
 # This is the resulting output and must be present, the hierarchy results will be merged in
@@ -153,7 +153,7 @@ Given the input file `data.json`:
 {
     "hierarchy": {
         "order": [
-            "fqdn:{{ lookup('fqdn'}} }}"
+            "fqdn:{{ lookup('facts.fqdn'}} }}"
         ]
     },
     "data": {
@@ -236,7 +236,7 @@ These facts will be merged with ones from the command line and external files an
 
 ### Go example
 
-Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `{{ lookup('fact') }}` placeholders, and merge the matching sections.
+Supply a YAML document and a map of facts. The resolver will parse the hierarchy, replace `{{ lookup('facts.fact') }}` placeholders, and merge the matching sections.
 
 Here the `hierarchy` key defines the lookup strategies and the `data` key defines what will be returned.
 
@@ -255,9 +255,9 @@ func main() {
         yamlDoc := []byte(`
  hierarchy:
    order:
-     - env:{{ lookup('env') }}
-     - role:{{ lookup('role') }}
-     - host:{{ lookup('hostname') }}
+     - env:{{ lookup('facts.env') }}
+     - role:{{ lookup('facts.role') }}
+     - host:{{ lookup('facts.hostname') }}
    merge: deep
 
  data:
@@ -315,7 +315,7 @@ If you already have parsed YAML data available, call `Resolve` directly:
 ```go
 config := map[string]any{
         "hierarchy": map[string]any{
-                "order": []any{"role:{{ lookup('role') }}"},
+                "order": []any{"role:{{ lookup('facts.role') }}"},
                 "merge": "deep",
         },
         "data": map[string]any{
