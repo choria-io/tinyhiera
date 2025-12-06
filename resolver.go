@@ -167,21 +167,28 @@ func genExprEnv(facts map[string]any) (map[string]any, error) {
 		return nil, err
 	}
 
-	env["lookup"] = func(key string) (any, error) {
-		res := gjson.GetBytes(j, key)
-		if res.Exists() {
-			if res.Type == gjson.Number {
-				if strings.Contains(res.Raw, ".") {
-					return res.Float(), nil
-				} else {
-					return res.Int(), nil
-				}
-			}
-
-			return res.Value(), nil
+	env["lookup"] = func(key string, args ...any) (any, error) {
+		var dflt any
+		if len(args) >= 1 {
+			dflt = args[0]
+		} else {
+			dflt = ""
 		}
 
-		return "", nil
+		res := gjson.GetBytes(j, key)
+		if !res.Exists() {
+			return dflt, nil
+		}
+
+		if res.Type == gjson.Number {
+			if strings.Contains(res.Raw, ".") {
+				return res.Float(), nil
+			} else {
+				return res.Int(), nil
+			}
+		}
+
+		return res.Value(), nil
 	}
 
 	return env, nil

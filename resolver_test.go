@@ -14,12 +14,12 @@ var _ = Describe("ResolveYaml", func() {
 		yamlData := []byte(`
 hierarchy:
   order:
-    - global
+    - other:{{ lookup('other', 'other') }}
     - env:{{ lookup('env') }}
     - role:{{ lookup('role') }}
     - host:{{ lookup('hostname') }}
+    - global
   merge: deep
-
 data:
   log_level: INFO
   packages:
@@ -27,6 +27,7 @@ data:
   web:
     listen_port: 80
     tls: false
+  other: test
 
 overrides:
   env:prod:
@@ -40,12 +41,16 @@ overrides:
 
   host:web01:
     log_level: TRACE
+
+  other:stuff:
+    other: extra
 `)
 
 		facts := map[string]any{
 			"env":      "prod",
 			"role":     "web",
 			"hostname": "web01",
+			"other":    "stuff",
 		}
 
 		result, err := ResolveYaml(yamlData, facts, nil)
@@ -54,6 +59,7 @@ overrides:
 		Expect(result).To(Equal(map[string]any{
 			"log_level": "TRACE",
 			"packages":  []any{"ca-certificates", "nginx"},
+			"other":     "extra",
 			"web": map[string]any{
 				"listen_port": 80,
 				"tls":         true,
