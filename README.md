@@ -1,5 +1,8 @@
 # Choria Hierarchical Data Resolver
 
+> [!info] Note
+> This project is now archived, it has been consumed into the [Choria Configuration Manager](https://choria-io.github.io/ccm/) project that realises many of the goals set out below
+
 Choria Hierarchical Data Resolver (aka `tinyhiera`) is a small data resolver inspired by Hiera. It evaluates a YAML or JSON document alongside a set of facts to produce a final data map. The resolver supports `first` and `deep` merge strategies and relies on simple string interpolation for hierarchy entries.
 
 It is optimized for single files that hold the hierarchy and data rather than the multi-file approach common in Hiera.
@@ -10,6 +13,7 @@ Major features:
  * Types are supported, and lookups can return typed data
  * Command line tool that includes built-in system facts
  * Go library
+
 
 ## Background
 
